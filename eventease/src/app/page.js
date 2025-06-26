@@ -11,10 +11,8 @@ export default function Home() {
               <h1 className="text-2xl font-bold text-gray-900">EventEase</h1>
             </div>
             <nav className="flex space-x-8">
-              <Link href="/events" className="text-gray-500 hover:text-gray-900">
-                Etkinlikler
-              </Link>
-              <Link href="/auth/signin" className="text-gray-500 hover:text-gray-900">
+            
+              <Link href="/auth/signin" className="bg-blue-800 text-white px-4 py-2 rounded-md hover:bg-amber-400-700">
                 Giriş Yap
               </Link>
               <Link href="/auth/signup" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
@@ -40,9 +38,7 @@ export default function Home() {
             <Link href="/events" className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700">
               Etkinlikleri Keşfet
             </Link>
-            <Link href="/auth/signup" className="border border-blue-600 text-blue-600 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-50">
-              Ücretsiz Başla
-            </Link>
+         
           </div>
         </div>
 

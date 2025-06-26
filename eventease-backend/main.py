@@ -15,6 +15,9 @@ import bcrypt
 # Environment variables
 load_dotenv()
 
+SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
+ALGORITHM = "HS256"
+
 app = FastAPI(
     title="EventEase API",
     description="Etkinlik yönetim platformu API'si",
@@ -123,6 +126,24 @@ async def create_user(user: UserCreate):
     
     return User(**user_doc)
 
+
+@app.post("/login")
+async def login(user: UserLogin):
+    db_user = db.users.find_one({"email": user.email})
+    if not db_user:
+        raise HTTPException(status_code=400, detail="Kullanıcı bulunamadı")
+    if not bcrypt.checkpw(user.password.encode("utf-8"), db_user["password"].encode("utf-8")):
+        raise HTTPException(status_code=400, detail="Şifre yanlış")
+    # JWT token üret
+    token_data = {
+        "sub": str(db_user["_id"]),
+        "email": db_user["email"],
+        "name": db_user["name"],
+        "role": db_user["role"]
+    }
+    token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
+    return {"access_token": token, "token_type": "bearer"}
+
 @app.get("/users/", response_model=List[User])
 async def get_users(current_user: dict = Depends(get_current_user)):
     users = []
@@ -225,22 +246,6 @@ async def delete_event(event_id: str, current_user: dict = Depends(get_current_u
     db.events.delete_one({"_id": ObjectId(event_id)})
     return {"message": "Etkinlik başarıyla silindi"}
 
-@app.post("/login")
-async def login(user: UserLogin):
-    db_user = db.users.find_one({"email": user.email})
-    if not db_user:
-        raise HTTPException(status_code=400, detail="Kullanıcı bulunamadı")
-    if not bcrypt.checkpw(user.password.encode("utf-8"), db_user["password"].encode("utf-8")):
-        raise HTTPException(status_code=400, detail="Şifre yanlış")
-    # JWT token üret
-    token_data = {
-        "sub": str(db_user["_id"]),
-        "email": db_user["email"],
-        "name": db_user["name"],
-        "role": db_user["role"]
-    }
-    token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
-    return {"access_token": token, "token_type": "bearer"}
 
 if __name__ == "__main__":
     import uvicorn
