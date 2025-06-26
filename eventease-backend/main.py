@@ -17,6 +17,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 ALGORITHM = "HS256"
+SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
 
 app = FastAPI(
     title="EventEase API",
@@ -78,6 +79,8 @@ class Event(EventBase):
 
 # Database (MongoDB)
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET", "206ab6876a8e9d80affcb5b92bdf02e2")
 
 client = MongoClient(DATABASE_URL, server_api=ServerApi('1'))
 db = client.eventease
