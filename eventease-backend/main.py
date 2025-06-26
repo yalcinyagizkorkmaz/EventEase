@@ -15,7 +15,7 @@ import bcrypt
 # Environment variables
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
+DATABASE_URL = os.getenv("DATABASE_URL")
 ALGORITHM = "HS256"
 
 app = FastAPI(
