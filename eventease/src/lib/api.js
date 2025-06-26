@@ -1,4 +1,10 @@
-const API_BASE_URL = 'http://localhost:8000'
+// API Base URL - Environment variable'dan al, yoksa localhost kullan
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+// API'nin mevcut olup olmadığını kontrol et
+const isApiAvailable = () => {
+  return API_BASE_URL && API_BASE_URL !== 'http://localhost:8000'
+}
 
 // Helper function to handle API responses
 async function handleResponse(response) {
@@ -13,12 +19,18 @@ async function handleResponse(response) {
 export const api = {
   // Health check
   health: async () => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
     const response = await fetch(`${API_BASE_URL}/health`)
     return handleResponse(response)
   },
 
   // User operations
   createUser: async (userData) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
     const response = await fetch(`${API_BASE_URL}/users/`, {
       method: 'POST',
       headers: {
@@ -30,6 +42,9 @@ export const api = {
   },
 
   getUsers: async (token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
     const response = await fetch(`${API_BASE_URL}/users/`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -40,6 +55,9 @@ export const api = {
 
   // Event operations
   createEvent: async (eventData, token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
     const response = await fetch(`${API_BASE_URL}/events/`, {
       method: 'POST',
       headers: {
@@ -52,16 +70,31 @@ export const api = {
   },
 
   getEvents: async () => {
-    const response = await fetch(`${API_BASE_URL}/events/`)
-    return handleResponse(response)
+    if (!isApiAvailable()) {
+      // API yoksa boş array döndür
+      return []
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/events/`)
+      return handleResponse(response)
+    } catch (error) {
+      console.warn('API erişilemiyor, boş liste döndürülüyor:', error.message)
+      return []
+    }
   },
 
   getEvent: async (eventId) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
     const response = await fetch(`${API_BASE_URL}/events/${eventId}`)
     return handleResponse(response)
   },
 
   updateEvent: async (eventId, eventData, token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
     const response = await fetch(`${API_BASE_URL}/events/${eventId}`, {
       method: 'PUT',
       headers: {
@@ -74,6 +107,9 @@ export const api = {
   },
 
   deleteEvent: async (eventId, token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
     const response = await fetch(`${API_BASE_URL}/events/${eventId}`, {
       method: 'DELETE',
       headers: {
@@ -82,6 +118,12 @@ export const api = {
     })
     return handleResponse(response)
   },
+
+  // API durumunu kontrol et
+  isAvailable: () => isApiAvailable(),
+  
+  // API URL'yi döndür (debug için)
+  getApiUrl: () => API_BASE_URL
 }
 
 // Event data transformation helpers

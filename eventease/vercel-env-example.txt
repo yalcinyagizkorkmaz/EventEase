@@ -1,0 +1,5 @@
+# Vercel Environment Variables
+NEXT_PUBLIC_API_URL=https://your-backend-url.com
+DATABASE_URL=your-mongodb-url
+NEXTAUTH_URL=https://your-app.vercel.app
+NEXTAUTH_SECRET=your-secret-key

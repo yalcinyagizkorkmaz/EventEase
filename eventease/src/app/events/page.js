@@ -19,8 +19,11 @@ export default function EventsPage() {
       const data = await api.getEvents()
       setEvents(data)
     } catch (err) {
-      setError('Etkinlikler yüklenirken bir hata oluştu')
       console.error('Error fetching events:', err)
+      // API yoksa hata gösterme, sadece boş liste göster
+      if (err.message !== 'API henüz yapılandırılmamış') {
+        setError('Etkinlikler yüklenirken bir hata oluştu')
+      }
     } finally {
       setLoading(false)
     }
@@ -70,6 +73,14 @@ export default function EventsPage() {
           </Link>
         </div>
 
+        {/* API Durumu */}
+        {!api.isAvailable() && (
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
+            <strong>Bilgi:</strong> Backend API henüz yapılandırılmamış. 
+            Gerçek etkinlik verileri gösterilemiyor.
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             {error}
@@ -82,8 +93,15 @@ export default function EventsPage() {
               <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Henüz etkinlik yok</h3>
-              <p className="text-gray-600 mb-6">İlk etkinliği oluşturarak başlayın!</p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                {api.isAvailable() ? 'Henüz etkinlik yok' : 'Etkinlik verisi mevcut değil'}
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {api.isAvailable() 
+                  ? 'İlk etkinliği oluşturarak başlayın!' 
+                  : 'Backend API yapılandırıldıktan sonra etkinlikler burada görünecek.'
+                }
+              </p>
               <Link href="/events/create" className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
                 İlk Etkinliği Oluştur
               </Link>
