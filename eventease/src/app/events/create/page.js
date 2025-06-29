@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -20,6 +20,12 @@ export default function CreateEvent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+  }, [status, router])
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -32,7 +38,6 @@ export default function CreateEvent() {
   }
 
   if (status === 'unauthenticated') {
-    router.push('/auth/signin')
     return null
   }
 
@@ -124,7 +129,7 @@ export default function CreateEvent() {
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-600 mb-2">
                 Etkinlik Başlığı *
               </label>
               <input
@@ -132,7 +137,7 @@ export default function CreateEvent() {
                 id="title"
                 name="title"
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-700"
                 value={formData.title}
                 onChange={handleChange}
                 placeholder="Etkinlik başlığını girin"
@@ -140,7 +145,7 @@ export default function CreateEvent() {
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-600 mb-2">
                 Açıklama *
               </label>
               <textarea
@@ -148,7 +153,7 @@ export default function CreateEvent() {
                 name="description"
                 required
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-700"
                 value={formData.description}
                 onChange={handleChange}
                 placeholder="Etkinlik açıklamasını girin"
@@ -156,7 +161,7 @@ export default function CreateEvent() {
             </div>
 
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="date" className="block text-sm font-medium text-gray-600 mb-2">
                 Tarih ve Saat *
               </label>
               <input
@@ -164,14 +169,14 @@ export default function CreateEvent() {
                 id="date"
                 name="date"
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-700"
                 value={formData.date}
                 onChange={handleChange}
               />
             </div>
 
             <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="location" className="block text-sm font-medium text-gray-600 mb-2">
                 Konum *
               </label>
               <input
@@ -179,7 +184,7 @@ export default function CreateEvent() {
                 id="location"
                 name="location"
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-700"
                 value={formData.location}
                 onChange={handleChange}
                 placeholder="Etkinlik konumunu girin"
@@ -187,7 +192,7 @@ export default function CreateEvent() {
             </div>
 
             <div>
-              <label htmlFor="maxAttendees" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="maxAttendees" className="block text-sm font-medium text-gray-600 mb-2">
                 Maksimum Katılımcı Sayısı
               </label>
               <input
@@ -195,7 +200,7 @@ export default function CreateEvent() {
                 id="maxAttendees"
                 name="maxAttendees"
                 min="1"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-700"
                 value={formData.maxAttendees}
                 onChange={handleChange}
                 placeholder="Sınırsız için boş bırakın"
@@ -211,7 +216,7 @@ export default function CreateEvent() {
                 checked={formData.isPublic}
                 onChange={handleChange}
               />
-              <label htmlFor="isPublic" className="ml-2 block text-sm text-gray-900">
+              <label htmlFor="isPublic" className="ml-2 block text-sm text-gray-600">
                 Herkese açık etkinlik
               </label>
             </div>

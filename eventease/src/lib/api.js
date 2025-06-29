@@ -83,6 +83,56 @@ export const api = {
     }
   },
 
+  getMyEvents: async (token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
+    const response = await fetch(`${API_BASE_URL}/events/my`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    return handleResponse(response)
+  },
+
+  getAttendingEvents: async (token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
+    const response = await fetch(`${API_BASE_URL}/events/attending`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    return handleResponse(response)
+  },
+
+  joinEvent: async (eventId, token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
+    const response = await fetch(`${API_BASE_URL}/events/${eventId}/join`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    return handleResponse(response)
+  },
+
+  leaveEvent: async (eventId, token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
+    const response = await fetch(`${API_BASE_URL}/events/${eventId}/leave`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    return handleResponse(response)
+  },
+
   getEvent: async (eventId) => {
     if (!isApiAvailable()) {
       throw new Error('API henüz yapılandırılmamış')

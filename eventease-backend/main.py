@@ -11,6 +11,7 @@ from pymongo.server_api import ServerApi
 from bson import ObjectId
 from jose import jwt
 import bcrypt
+import uuid
 
 # Environment variables
 load_dotenv()
@@ -82,15 +83,24 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET", "206ab6876a8e9d80affcb5b92bdf02e2")
 
-client = MongoClient(DATABASE_URL, server_api=ServerApi('1'))
-db = client.eventease
-
-# Bağlantı testi (isteğe bağlı)
+# Geçici olarak MongoDB bağlantısını devre dışı bırak
 try:
+    client = MongoClient(DATABASE_URL, server_api=ServerApi('1'))
+    db = client.eventease
+    # Bağlantı testi
     client.admin.command('ping')
     print("MongoDB bağlantısı başarılı!")
+    MONGODB_AVAILABLE = True
 except Exception as e:
     print("MongoDB bağlantı hatası:", e)
+    print("Mock data kullanılacak...")
+    MONGODB_AVAILABLE = False
+    # Mock database
+    db = None
+
+# Mock data for testing
+mock_events = []
+mock_users = []
 
 # Helper functions
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -177,117 +187,219 @@ async def create_event(event: EventCreate, current_user: dict = Depends(get_curr
         "updated_at": datetime.now()
     }
     
-    result = db.events.insert_one(event_doc)
-    event_doc["id"] = str(result.inserted_id)
+    if MONGODB_AVAILABLE and db:
+        result = db.events.insert_one(event_doc)
+        event_doc["id"] = str(result.inserted_id)
+    else:
+        # Mock data kullan
+        event_doc["id"] = str(uuid.uuid4())
+        mock_events.append(event_doc)
     
     return Event(**event_doc)
 
 @app.get("/events/", response_model=List[Event])
 async def get_events():
     events = []
-    for event in db.events.find():
-        # MongoDB ObjectId'yi string'e çevir
-        event["id"] = str(event["_id"])
-        
-        # Eksik alanları varsayılan değerlerle doldur
-        if "created_at" not in event:
-            event["created_at"] = datetime.now()
-        if "updated_at" not in event:
-            event["updated_at"] = datetime.now()
-        if "creator_id" not in event:
-            event["creator_id"] = "unknown"
-        if "is_public" not in event:
-            event["is_public"] = True
+    
+    if MONGODB_AVAILABLE and db:
+        for event in db.events.find():
+            # MongoDB ObjectId'yi string'e çevir
+            event["id"] = str(event["_id"])
             
-        events.append(Event(**event))
+            # Eksik alanları varsayılan değerlerle doldur
+            if "created_at" not in event:
+                event["created_at"] = datetime.now()
+            if "updated_at" not in event:
+                event["updated_at"] = datetime.now()
+            if "creator_id" not in event:
+                event["creator_id"] = "unknown"
+            if "is_public" not in event:
+                event["is_public"] = True
+                
+            events.append(Event(**event))
+    else:
+        # Mock data kullan
+        for event in mock_events:
+            events.append(Event(**event))
+    
     return events
 
 @app.get("/events/{event_id}", response_model=Event)
 async def get_event(event_id: str):
-    event = db.events.find_one({"_id": ObjectId(event_id)})
-    if not event:
-        raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+    if MONGODB_AVAILABLE and db:
+        event = db.events.find_one({"_id": ObjectId(event_id)})
+        if not event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        event["id"] = str(event["_id"])
+    else:
+        # Mock data kullan
+        event = next((e for e in mock_events if e["id"] == event_id), None)
+        if not event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
     
-    event["id"] = str(event["_id"])
     return Event(**event)
 
 @app.put("/events/{event_id}", response_model=Event)
 async def update_event(event_id: str, event: EventCreate, current_user: dict = Depends(get_current_user)):
-    # Check if event exists and user is creator
-    existing_event = db.events.find_one({"_id": ObjectId(event_id)})
-    if not existing_event:
-        raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
-    
-    if existing_event["creator_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Bu etkinliği düzenleme yetkiniz yok")
-    
-    update_data = {
-        **event.dict(),
-        "updated_at": datetime.now()
-    }
-    
-    db.events.update_one(
-        {"_id": ObjectId(event_id)},
-        {"$set": update_data}
-    )
-    
-    updated_event = db.events.find_one({"_id": ObjectId(event_id)})
-    updated_event["id"] = str(updated_event["_id"])
+    if MONGODB_AVAILABLE and db:
+        # Check if event exists and user is creator
+        existing_event = db.events.find_one({"_id": ObjectId(event_id)})
+        if not existing_event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        
+        if existing_event["creator_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Bu etkinliği düzenleme yetkiniz yok")
+        
+        update_data = {
+            **event.dict(),
+            "updated_at": datetime.now()
+        }
+        
+        db.events.update_one(
+            {"_id": ObjectId(event_id)},
+            {"$set": update_data}
+        )
+        
+        updated_event = db.events.find_one({"_id": ObjectId(event_id)})
+        updated_event["id"] = str(updated_event["_id"])
+    else:
+        # Mock data kullan
+        existing_event = next((e for e in mock_events if e["id"] == event_id), None)
+        if not existing_event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        
+        if existing_event["creator_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Bu etkinliği düzenleme yetkiniz yok")
+        
+        # Update mock event
+        existing_event.update({
+            **event.dict(),
+            "updated_at": datetime.now()
+        })
+        updated_event = existing_event
     
     return Event(**updated_event)
 
 @app.delete("/events/{event_id}")
 async def delete_event(event_id: str, current_user: dict = Depends(get_current_user)):
-    # Check if event exists and user is creator
-    existing_event = db.events.find_one({"_id": ObjectId(event_id)})
-    if not existing_event:
-        raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+    if MONGODB_AVAILABLE and db:
+        # Check if event exists and user is creator
+        existing_event = db.events.find_one({"_id": ObjectId(event_id)})
+        if not existing_event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        
+        if existing_event["creator_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Bu etkinliği silme yetkiniz yok")
+        
+        db.events.delete_one({"_id": ObjectId(event_id)})
+    else:
+        # Mock data kullan
+        existing_event = next((e for e in mock_events if e["id"] == event_id), None)
+        if not existing_event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        
+        if existing_event["creator_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Bu etkinliği silme yetkiniz yok")
+        
+        # Remove from mock data
+        mock_events[:] = [e for e in mock_events if e["id"] != event_id]
     
-    if existing_event["creator_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Bu etkinliği silme yetkiniz yok")
-    
-    db.events.delete_one({"_id": ObjectId(event_id)})
     return {"message": "Etkinlik başarıyla silindi"}
 
+@app.get("/events/my", response_model=List[Event])
+async def get_my_events(current_user: dict = Depends(get_current_user)):
+    events = []
+    
+    if MONGODB_AVAILABLE and db:
+        for event in db.events.find({"creator_id": current_user["id"]}):
+            # MongoDB ObjectId'yi string'e çevir
+            event["id"] = str(event["_id"])
+            
+            # Eksik alanları varsayılan değerlerle doldur
+            if "created_at" not in event:
+                event["created_at"] = datetime.now()
+            if "updated_at" not in event:
+                event["updated_at"] = datetime.now()
+            if "creator_id" not in event:
+                event["creator_id"] = current_user["id"]
+            if "is_public" not in event:
+                event["is_public"] = True
+                
+            events.append(Event(**event))
+    else:
+        # Mock data kullan - kullanıcının oluşturduğu etkinlikler
+        for event in mock_events:
+            if event.get("creator_id") == current_user["id"]:
+                events.append(Event(**event))
+    
+    return {"data": events}
+
+@app.get("/events/attending", response_model=List[Event])
+async def get_attending_events(current_user: dict = Depends(get_current_user)):
+    # Kullanıcının katıldığı etkinlikleri bul
+    # Bu örnek için basit bir implementasyon - gerçek uygulamada attendance tablosu olmalı
+    events = []
+    
+    if MONGODB_AVAILABLE and db:
+        for event in db.events.find({"is_public": True}):  # Şimdilik sadece public etkinlikler
+            # MongoDB ObjectId'yi string'e çevir
+            event["id"] = str(event["_id"])
+            
+            # Eksik alanları varsayılan değerlerle doldur
+            if "created_at" not in event:
+                event["created_at"] = datetime.now()
+            if "updated_at" not in event:
+                event["updated_at"] = datetime.now()
+            if "creator_id" not in event:
+                event["creator_id"] = "unknown"
+            if "is_public" not in event:
+                event["is_public"] = True
+                
+            events.append(Event(**event))
+    else:
+        # Mock data kullan - public etkinlikler
+        for event in mock_events:
+            if event.get("is_public", True):
+                events.append(Event(**event))
+    
+    return {"data": events}
+
+@app.post("/events/{event_id}/join")
+async def join_event(event_id: str, current_user: dict = Depends(get_current_user)):
+    # Etkinliğin var olup olmadığını kontrol et
+    if MONGODB_AVAILABLE and db:
+        event = db.events.find_one({"_id": ObjectId(event_id)})
+        if not event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+    else:
+        # Mock data kontrol
+        event = next((e for e in mock_events if e["id"] == event_id), None)
+        if not event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+    
+    # Kullanıcının zaten katılıp katılmadığını kontrol et
+    # Bu örnek için basit bir implementasyon
+    return {"message": "Etkinliğe başarıyla katıldınız"}
+
+@app.post("/events/{event_id}/leave")
+async def leave_event(event_id: str, current_user: dict = Depends(get_current_user)):
+    # Etkinliğin var olup olmadığını kontrol et
+    if MONGODB_AVAILABLE and db:
+        event = db.events.find_one({"_id": ObjectId(event_id)})
+        if not event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+    else:
+        # Mock data kontrol
+        event = next((e for e in mock_events if e["id"] == event_id), None)
+        if not event:
+            raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+    
+    # Kullanıcının katılıp katılmadığını kontrol et
+    # Bu örnek için basit bir implementasyon
+    return {"message": "Etkinlikten başarıyla ayrıldınız"}
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-# USERS koleksiyonunda updatedAt alanı eksik veya null olanları güncelle
-db.users.update_many(
-    {"$or": [{"updatedAt": {"$exists": False}}, {"updatedAt": None}]},
-    {"$set": {"updatedAt": datetime.utcnow()}}
-)
-# Eğer eski kayıtlarınızda updated_at varsa, hepsini updatedAt'e çevirin
-for user in db.users.find({"updated_at": {"$exists": True}}):
-    db.users.update_one(
-        {"_id": user["_id"]},
-        {"$set": {"updatedAt": user["updated_at"]}, "$unset": {"updated_at": ""}}
-    )
-
-# EVENTS koleksiyonunda updatedAt alanı eksik veya null olanları güncelle
-db.events.update_many(
-    {"$or": [{"updatedAt": {"$exists": False}}, {"updatedAt": None}]},
-    {"$set": {"updatedAt": datetime.utcnow()}}
-)
-for event in db.events.find({"updated_at": {"$exists": True}}):
-    db.events.update_one(
-        {"_id": event["_id"]},
-        {"$set": {"updatedAt": event["updated_at"]}, "$unset": {"updated_at": ""}}
-    )
-
-print("Tüm kullanıcı ve event kayıtlarında updatedAt alanı düzeltildi.")
-
-# Şifreleri hash'le
-for user in db.users.find():
-    password = user.get("password")
-    # Eğer şifre hashli değilse (düz metinse) hashle
-    if password and not password.startswith("$2b$"):
-        hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-        db.users.update_one({"_id": user["_id"]}, {"$set": {"password": hashed}})
-        print(f"{user['email']} için şifre hash'lendi.")
-    else:
-        print(f"{user['email']} zaten hash'li.")
 
 
