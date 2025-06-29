@@ -81,7 +81,15 @@ export default function CreateEvent() {
       }
 
       // API'ye gönder
-      await api.createEvent(eventData, session?.accessToken)
+      // NextAuth token'ını backend token'ına çevir
+      const backendTokenResponse = await api.validateNextAuthToken({
+        id: session?.user?.id,
+        email: session?.user?.email,
+        name: session?.user?.name,
+        role: session?.user?.role || 'USER'
+      })
+
+      await api.createEvent(eventData, backendTokenResponse.access_token)
       
       // Başarılı olursa dashboard'a yönlendir
       router.push('/dashboard?message=Etkinlik başarıyla oluşturuldu!')

@@ -36,8 +36,16 @@ export default function AttendingEvents() {
         return
       }
 
-      const response = await api.getAttendingEvents(session?.accessToken)
-      setEvents(response.data || [])
+      // NextAuth token'ını backend token'ına çevir
+      const backendTokenResponse = await api.validateNextAuthToken({
+        id: session?.user?.id,
+        email: session?.user?.email,
+        name: session?.user?.name,
+        role: session?.user?.role || 'USER'
+      })
+
+      const response = await api.getAttendingEvents(backendTokenResponse.access_token)
+      setEvents(response || [])
     } catch (error) {
       console.error('Katıldığım etkinlikler yüklenirken hata:', error)
       setError(error.message || 'Etkinlikler yüklenirken bir hata oluştu')

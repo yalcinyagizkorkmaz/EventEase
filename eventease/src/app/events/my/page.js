@@ -36,8 +36,16 @@ export default function MyEvents() {
         return
       }
 
-      const response = await api.getMyEvents(session?.accessToken)
-      setEvents(response.data || [])
+      // NextAuth token'ını backend token'ına çevir
+      const backendTokenResponse = await api.validateNextAuthToken({
+        id: session?.user?.id,
+        email: session?.user?.email,
+        name: session?.user?.name,
+        role: session?.user?.role || 'USER'
+      })
+
+      const response = await api.getMyEvents(backendTokenResponse.access_token)
+      setEvents(response || [])
     } catch (error) {
       console.error('Etkinlikler yüklenirken hata:', error)
       setError(error.message || 'Etkinlikler yüklenirken bir hata oluştu')

@@ -2,9 +2,7 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 // API'nin mevcut olup olmadığını kontrol et
-const isApiAvailable = () => {
-  return API_BASE_URL && API_BASE_URL !== 'http://localhost:8000'
-}
+const isApiAvailable = () => true;
 
 // Helper function to handle API responses
 async function handleResponse(response) {
@@ -23,6 +21,21 @@ export const api = {
       throw new Error('API henüz yapılandırılmamış')
     }
     const response = await fetch(`${API_BASE_URL}/health`)
+    return handleResponse(response)
+  },
+
+  // NextAuth token'ını backend token'ına çevir
+  validateNextAuthToken: async (nextAuthToken) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(nextAuthToken),
+    })
     return handleResponse(response)
   },
 
@@ -126,6 +139,18 @@ export const api = {
     }
     const response = await fetch(`${API_BASE_URL}/events/${eventId}/leave`, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    return handleResponse(response)
+  },
+
+  checkAttendance: async (eventId, token) => {
+    if (!isApiAvailable()) {
+      throw new Error('API henüz yapılandırılmamış')
+    }
+    const response = await fetch(`${API_BASE_URL}/events/${eventId}/is-attending`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },

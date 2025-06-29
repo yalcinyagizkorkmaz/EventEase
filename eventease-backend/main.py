@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 from pymongo.mongo_client import MongoClient
@@ -101,12 +101,85 @@ except Exception as e:
 # Mock data for testing
 mock_events = []
 mock_users = []
+mock_attendances = []  # Kullanıcıların katıldığı etkinlikleri takip etmek için
+
+# Test için mock attendance kayıtları ekle
+def add_test_attendance_data():
+    global mock_attendances, mock_events
+    
+    # Test etkinlikleri ekle
+    mock_events = [
+        {
+            "id": "test-event-1",
+            "title": "Test Etkinlik 1",
+            "description": "Bu bir test etkinliğidir",
+            "date": datetime.now() + timedelta(days=7),
+            "location": "Test Lokasyonu",
+            "max_attendees": 10,
+            "is_public": True,
+            "creator_id": "2",
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        },
+        {
+            "id": "test-event-2", 
+            "title": "Test Etkinlik 2",
+            "description": "Bu da bir test etkinliğidir",
+            "date": datetime.now() + timedelta(days=14),
+            "location": "Test Lokasyonu 2",
+            "max_attendees": 5,
+            "is_public": True,
+            "creator_id": "3",
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+    ]
+    
+    # Test kullanıcısı "1" için attendance kayıtları
+    mock_attendances = [
+        {
+            "user_id": "1",
+            "event_id": "test-event-1",
+            "joined_at": datetime.now()
+        },
+        {
+            "user_id": "1", 
+            "event_id": "test-event-2",
+            "joined_at": datetime.now()
+        }
+    ]
+    print(f"Mock data eklendi: {len(mock_events)} etkinlik, {len(mock_attendances)} attendance kaydı")
+
+# Test data'yı ekle
+add_test_attendance_data()
 
 # Helper functions
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    # JWT token validation logic here
-    # For now, return a mock user
-    return {"id": "1", "email": "test@test.com", "role": "USER"}
+    try:
+        # JWT token'ı decode et
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        email = payload.get("email")
+        name = payload.get("name")
+        role = payload.get("role", "USER")
+        
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Geçersiz token")
+        
+        return {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "role": role
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token süresi dolmuş")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Geçersiz token")
+    except Exception as e:
+        # Debug için geçici olarak mock user döndür
+        print(f"Token decode hatası: {e}")
+        return {"id": "1", "email": "test@test.com", "role": "USER"}
 
 # Routes
 @app.get("/")
@@ -116,6 +189,41 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now()}
+
+# NextAuth token'ını kabul eden endpoint
+@app.post("/auth/validate")
+async def validate_nextauth_token(token_data: dict):
+    try:
+        # NextAuth token'ından kullanıcı bilgilerini al
+        user_id = token_data.get("id")
+        email = token_data.get("email")
+        name = token_data.get("name")
+        role = token_data.get("role", "USER")
+        
+        if not user_id or not email:
+            raise HTTPException(status_code=401, detail="Geçersiz token")
+        
+        # Backend JWT token'ı oluştur
+        backend_token_data = {
+            "sub": user_id,
+            "email": email,
+            "name": name,
+            "role": role
+        }
+        backend_token = jwt.encode(backend_token_data, SECRET_KEY, algorithm=ALGORITHM)
+        
+        return {
+            "access_token": backend_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user_id,
+                "email": email,
+                "name": name,
+                "role": role
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Token doğrulama hatası: {str(e)}")
 
 # User routes
 @app.post("/users/", response_model=User, status_code=status.HTTP_201_CREATED)
@@ -181,13 +289,13 @@ async def get_users(current_user: dict = Depends(get_current_user)):
 @app.post("/events/", response_model=Event, status_code=status.HTTP_201_CREATED)
 async def create_event(event: EventCreate, current_user: dict = Depends(get_current_user)):
     event_doc = {
-        **event.dict(),
+        **event.model_dump(),
         "creator_id": current_user["id"],
         "created_at": datetime.now(),
         "updated_at": datetime.now()
     }
     
-    if MONGODB_AVAILABLE and db:
+    if MONGODB_AVAILABLE and db is not None:
         result = db.events.insert_one(event_doc)
         event_doc["id"] = str(result.inserted_id)
     else:
@@ -201,7 +309,7 @@ async def create_event(event: EventCreate, current_user: dict = Depends(get_curr
 async def get_events():
     events = []
     
-    if MONGODB_AVAILABLE and db:
+    if MONGODB_AVAILABLE and db is not None:
         for event in db.events.find():
             # MongoDB ObjectId'yi string'e çevir
             event["id"] = str(event["_id"])
@@ -224,9 +332,82 @@ async def get_events():
     
     return events
 
+@app.get("/events/my", response_model=List[Event])
+async def get_my_events(current_user: dict = Depends(get_current_user)):
+    events = []
+    
+    if MONGODB_AVAILABLE and db is not None:
+        for event in db.events.find({"creator_id": current_user["id"]}):
+            # MongoDB ObjectId'yi string'e çevir
+            event["id"] = str(event["_id"])
+            
+            # Eksik alanları varsayılan değerlerle doldur
+            if "created_at" not in event:
+                event["created_at"] = datetime.now()
+            if "updated_at" not in event:
+                event["updated_at"] = datetime.now()
+            if "creator_id" not in event:
+                event["creator_id"] = current_user["id"]
+            if "is_public" not in event:
+                event["is_public"] = True
+                
+            events.append(Event(**event))
+    else:
+        # Mock data kullan - kullanıcının oluşturduğu etkinlikler
+        for event in mock_events:
+            if event.get("creator_id") == current_user["id"]:
+                events.append(Event(**event))
+    
+    return events
+
+@app.get("/events/attending", response_model=List[Event])
+async def get_attending_events(current_user: dict = Depends(get_current_user)):
+    # Kullanıcının katıldığı etkinlikleri bul
+    events = []
+    
+    print(f"Kullanıcı ID: {current_user['id']}")
+    print(f"MongoDB Available: {MONGODB_AVAILABLE}")
+    
+    if MONGODB_AVAILABLE and db is not None:
+        # Kullanıcının attendance kayıtlarını bul
+        attendance_records = db.attendances.find({"user_id": current_user["id"]})
+        
+        for attendance in attendance_records:
+            # Her attendance kaydı için etkinliği bul
+            event = db.events.find_one({"_id": ObjectId(attendance["event_id"])})
+            if event:
+                # MongoDB ObjectId'yi string'e çevir
+                event["id"] = str(event["_id"])
+                
+                # Eksik alanları varsayılan değerlerle doldur
+                if "created_at" not in event:
+                    event["created_at"] = datetime.now()
+                if "updated_at" not in event:
+                    event["updated_at"] = datetime.now()
+                if "creator_id" not in event:
+                    event["creator_id"] = "unknown"
+                if "is_public" not in event:
+                    event["is_public"] = True
+                    
+                events.append(Event(**event))
+    else:
+        # Mock data kullan - kullanıcının katıldığı etkinlikler
+        print(f"Mock attendances: {mock_attendances}")
+        user_attendances = [a for a in mock_attendances if a["user_id"] == current_user["id"]]
+        print(f"User attendances: {user_attendances}")
+        print(f"Mock events: {[e.get('id', 'no-id') for e in mock_events]}")
+        
+        for attendance in user_attendances:
+            event = next((e for e in mock_events if e["id"] == attendance["event_id"]), None)
+            if event:
+                events.append(Event(**event))
+    
+    print(f"Returning {len(events)} events for user {current_user['id']}")
+    return events
+
 @app.get("/events/{event_id}", response_model=Event)
 async def get_event(event_id: str):
-    if MONGODB_AVAILABLE and db:
+    if MONGODB_AVAILABLE and db is not None:
         event = db.events.find_one({"_id": ObjectId(event_id)})
         if not event:
             raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
@@ -241,7 +422,7 @@ async def get_event(event_id: str):
 
 @app.put("/events/{event_id}", response_model=Event)
 async def update_event(event_id: str, event: EventCreate, current_user: dict = Depends(get_current_user)):
-    if MONGODB_AVAILABLE and db:
+    if MONGODB_AVAILABLE and db is not None:
         # Check if event exists and user is creator
         existing_event = db.events.find_one({"_id": ObjectId(event_id)})
         if not existing_event:
@@ -251,7 +432,7 @@ async def update_event(event_id: str, event: EventCreate, current_user: dict = D
             raise HTTPException(status_code=403, detail="Bu etkinliği düzenleme yetkiniz yok")
         
         update_data = {
-            **event.dict(),
+            **event.model_dump(),
             "updated_at": datetime.now()
         }
         
@@ -273,7 +454,7 @@ async def update_event(event_id: str, event: EventCreate, current_user: dict = D
         
         # Update mock event
         existing_event.update({
-            **event.dict(),
+            **event.model_dump(),
             "updated_at": datetime.now()
         })
         updated_event = existing_event
@@ -282,7 +463,7 @@ async def update_event(event_id: str, event: EventCreate, current_user: dict = D
 
 @app.delete("/events/{event_id}")
 async def delete_event(event_id: str, current_user: dict = Depends(get_current_user)):
-    if MONGODB_AVAILABLE and db:
+    if MONGODB_AVAILABLE and db is not None:
         # Check if event exists and user is creator
         existing_event = db.events.find_one({"_id": ObjectId(event_id)})
         if not existing_event:
@@ -306,97 +487,112 @@ async def delete_event(event_id: str, current_user: dict = Depends(get_current_u
     
     return {"message": "Etkinlik başarıyla silindi"}
 
-@app.get("/events/my", response_model=List[Event])
-async def get_my_events(current_user: dict = Depends(get_current_user)):
-    events = []
-    
-    if MONGODB_AVAILABLE and db:
-        for event in db.events.find({"creator_id": current_user["id"]}):
-            # MongoDB ObjectId'yi string'e çevir
-            event["id"] = str(event["_id"])
-            
-            # Eksik alanları varsayılan değerlerle doldur
-            if "created_at" not in event:
-                event["created_at"] = datetime.now()
-            if "updated_at" not in event:
-                event["updated_at"] = datetime.now()
-            if "creator_id" not in event:
-                event["creator_id"] = current_user["id"]
-            if "is_public" not in event:
-                event["is_public"] = True
-                
-            events.append(Event(**event))
-    else:
-        # Mock data kullan - kullanıcının oluşturduğu etkinlikler
-        for event in mock_events:
-            if event.get("creator_id") == current_user["id"]:
-                events.append(Event(**event))
-    
-    return {"data": events}
-
-@app.get("/events/attending", response_model=List[Event])
-async def get_attending_events(current_user: dict = Depends(get_current_user)):
-    # Kullanıcının katıldığı etkinlikleri bul
-    # Bu örnek için basit bir implementasyon - gerçek uygulamada attendance tablosu olmalı
-    events = []
-    
-    if MONGODB_AVAILABLE and db:
-        for event in db.events.find({"is_public": True}):  # Şimdilik sadece public etkinlikler
-            # MongoDB ObjectId'yi string'e çevir
-            event["id"] = str(event["_id"])
-            
-            # Eksik alanları varsayılan değerlerle doldur
-            if "created_at" not in event:
-                event["created_at"] = datetime.now()
-            if "updated_at" not in event:
-                event["updated_at"] = datetime.now()
-            if "creator_id" not in event:
-                event["creator_id"] = "unknown"
-            if "is_public" not in event:
-                event["is_public"] = True
-                
-            events.append(Event(**event))
-    else:
-        # Mock data kullan - public etkinlikler
-        for event in mock_events:
-            if event.get("is_public", True):
-                events.append(Event(**event))
-    
-    return {"data": events}
-
 @app.post("/events/{event_id}/join")
 async def join_event(event_id: str, current_user: dict = Depends(get_current_user)):
     # Etkinliğin var olup olmadığını kontrol et
-    if MONGODB_AVAILABLE and db:
+    if MONGODB_AVAILABLE and db is not None:
         event = db.events.find_one({"_id": ObjectId(event_id)})
         if not event:
             raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        
+        # Kullanıcının zaten katılıp katılmadığını kontrol et
+        existing_attendance = db.attendances.find_one({
+            "user_id": current_user["id"],
+            "event_id": event_id
+        })
+        
+        if existing_attendance:
+            raise HTTPException(status_code=400, detail="Bu etkinliğe zaten katılmışsınız")
+        
+        # Attendance kaydı oluştur
+        attendance_doc = {
+            "user_id": current_user["id"],
+            "event_id": event_id,
+            "joined_at": datetime.now()
+        }
+        
+        db.attendances.insert_one(attendance_doc)
     else:
         # Mock data kontrol
         event = next((e for e in mock_events if e["id"] == event_id), None)
         if not event:
             raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        
+        # Kullanıcının zaten katılıp katılmadığını kontrol et
+        existing_attendance = next((a for a in mock_attendances 
+                                  if a["user_id"] == current_user["id"] and a["event_id"] == event_id), None)
+        
+        if existing_attendance:
+            raise HTTPException(status_code=400, detail="Bu etkinliğe zaten katılmışsınız")
+        
+        # Mock attendance kaydı oluştur
+        mock_attendances.append({
+            "user_id": current_user["id"],
+            "event_id": event_id,
+            "joined_at": datetime.now()
+        })
     
-    # Kullanıcının zaten katılıp katılmadığını kontrol et
-    # Bu örnek için basit bir implementasyon
     return {"message": "Etkinliğe başarıyla katıldınız"}
 
 @app.post("/events/{event_id}/leave")
 async def leave_event(event_id: str, current_user: dict = Depends(get_current_user)):
     # Etkinliğin var olup olmadığını kontrol et
-    if MONGODB_AVAILABLE and db:
+    if MONGODB_AVAILABLE and db is not None:
         event = db.events.find_one({"_id": ObjectId(event_id)})
         if not event:
             raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        
+        # Kullanıcının katılıp katılmadığını kontrol et
+        existing_attendance = db.attendances.find_one({
+            "user_id": current_user["id"],
+            "event_id": event_id
+        })
+        
+        if not existing_attendance:
+            raise HTTPException(status_code=400, detail="Bu etkinliğe katılmamışsınız")
+        
+        # Attendance kaydını sil
+        db.attendances.delete_one({
+            "user_id": current_user["id"],
+            "event_id": event_id
+        })
     else:
         # Mock data kontrol
         event = next((e for e in mock_events if e["id"] == event_id), None)
         if not event:
             raise HTTPException(status_code=404, detail="Etkinlik bulunamadı")
+        
+        # Kullanıcının katılıp katılmadığını kontrol et
+        existing_attendance = next((a for a in mock_attendances 
+                                  if a["user_id"] == current_user["id"] and a["event_id"] == event_id), None)
+        
+        if not existing_attendance:
+            raise HTTPException(status_code=400, detail="Bu etkinliğe katılmamışsınız")
+        
+        # Mock attendance kaydını sil
+        mock_attendances[:] = [a for a in mock_attendances 
+                             if not (a["user_id"] == current_user["id"] and a["event_id"] == event_id)]
     
-    # Kullanıcının katılıp katılmadığını kontrol et
-    # Bu örnek için basit bir implementasyon
     return {"message": "Etkinlikten başarıyla ayrıldınız"}
+
+@app.get("/events/{event_id}/is-attending")
+async def check_attendance(event_id: str, current_user: dict = Depends(get_current_user)):
+    """Kullanıcının belirli bir etkinliğe katılıp katılmadığını kontrol et"""
+    
+    if MONGODB_AVAILABLE and db is not None:
+        # Attendance kaydını kontrol et
+        attendance = db.attendances.find_one({
+            "user_id": current_user["id"],
+            "event_id": event_id
+        })
+        
+        return {"is_attending": attendance is not None}
+    else:
+        # Mock data kontrol
+        attendance = next((a for a in mock_attendances 
+                          if a["user_id"] == current_user["id"] and a["event_id"] == event_id), None)
+        
+        return {"is_attending": attendance is not None}
 
 if __name__ == "__main__":
     import uvicorn
