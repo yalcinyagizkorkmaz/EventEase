@@ -60,9 +60,21 @@ export default function AttendingEvents() {
     }
 
     try {
-      await api.leaveEvent(eventId, session?.accessToken)
-      // Etkinlik listesini güncelle
-      setEvents(events.filter(event => event.id !== eventId))
+      const response = await fetch(`${API_BASE_URL}/events/${eventId}/leave`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.accessToken}`,
+        },
+      })
+
+      if (response.ok) {
+        // Etkinlik listesini güncelle
+        setEvents(events.filter(event => event.id !== eventId))
+        router.push('/events')
+      } else {
+        console.error('Etkinlikten ayrılma hatası:', response.statusText)
+        alert('Etkinlikten ayrılırken bir hata oluştu')
+      }
     } catch (error) {
       console.error('Etkinlikten ayrılma hatası:', error)
       alert('Etkinlikten ayrılırken bir hata oluştu')

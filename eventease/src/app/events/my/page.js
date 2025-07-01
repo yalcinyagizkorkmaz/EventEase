@@ -80,6 +80,17 @@ export default function MyEvents() {
     })
   }
 
+  const handleJoinEvent = async (eventId) => {
+    try {
+      // Katılma API çağrısı
+      await api.joinEvent(eventId, session?.accessToken)
+      // Başarılıysa attending sayfasına yönlendir
+      router.push('/events/attending')
+    } catch (error) {
+      alert('Etkinliğe katılırken bir hata oluştu')
+    }
+  }
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
