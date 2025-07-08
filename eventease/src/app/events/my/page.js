@@ -55,17 +55,26 @@ export default function MyEvents() {
   }
 
   const handleDeleteEvent = async (eventId) => {
-    if (!confirm('Bu etkinliği silmek istediğinizden emin misiniz?')) {
+    if (!confirm('Bu etkinliği silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
       return
     }
 
     try {
-      await api.deleteEvent(eventId, session?.accessToken)
+      // NextAuth token'ını backend token'ına çevir
+      const backendTokenResponse = await api.validateNextAuthToken({
+        id: session?.user?.id,
+        email: session?.user?.email,
+        name: session?.user?.name,
+        role: session?.user?.role || 'USER'
+      })
+
+      await api.deleteEvent(eventId, backendTokenResponse.access_token)
+      alert('Etkinlik başarıyla silindi!')
       // Etkinlik listesini güncelle
       setEvents(events.filter(event => event.id !== eventId))
     } catch (error) {
       console.error('Etkinlik silme hatası:', error)
-      alert('Etkinlik silinirken bir hata oluştu')
+      alert(error.message || 'Etkinlik silinirken bir hata oluştu')
     }
   }
 
