@@ -122,13 +122,7 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Son Aktiviteler</h3>
-          <div className="text-center py-8">
-            <p className="text-gray-500">Henüz aktivite bulunmuyor</p>
-            <p className="text-sm text-gray-400 mt-2">İlk etkinliğinizi oluşturarak başlayın!</p>
-          </div>
-        </div>
+        
       </main>
     </div>
   )
