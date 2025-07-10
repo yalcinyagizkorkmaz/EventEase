@@ -31,6 +31,7 @@ origins = [
     "http://localhost:3000",  # Local development
     "https://event-ease.vercel.app",
     "https://event-ease-15zh7mse7-yalcin-yagiz-korkmazs-projects.vercel.app",
+    "https://event-ease-phi.vercel.app",
     "https://event-ease-c7aiv0cux-yalcin-yagiz-korkmazs-projects.vercel.app"
 ]
 
