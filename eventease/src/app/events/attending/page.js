@@ -36,6 +36,8 @@ export default function AttendingEvents() {
         return
       }
 
+      console.log('Session user:', session?.user)
+      
       // NextAuth token'ını backend token'ına çevir
       const backendTokenResponse = await api.validateNextAuthToken({
         id: session?.user?.id,
@@ -44,7 +46,9 @@ export default function AttendingEvents() {
         role: session?.user?.role || 'USER'
       })
 
+      console.log('Backend token response:', backendTokenResponse)
       const response = await api.getAttendingEvents(backendTokenResponse.access_token)
+      console.log('Attending events response:', response)
       setEvents(response || [])
     } catch (error) {
       console.error('Katıldığım etkinlikler yüklenirken hata:', error)
@@ -60,24 +64,22 @@ export default function AttendingEvents() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${eventId}/leave`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`,
-        },
+      // NextAuth token'ını backend token'ına çevir
+      const backendTokenResponse = await api.validateNextAuthToken({
+        id: session?.user?.id,
+        email: session?.user?.email,
+        name: session?.user?.name,
+        role: session?.user?.role || 'USER'
       })
 
-      if (response.ok) {
-        // Etkinlik listesini güncelle
-        setEvents(events.filter(event => event.id !== eventId))
-        router.push('/events')
-      } else {
-        console.error('Etkinlikten ayrılma hatası:', response.statusText)
-        alert('Etkinlikten ayrılırken bir hata oluştu')
-      }
+      await api.leaveEvent(eventId, backendTokenResponse.access_token)
+      
+      // Etkinlik listesini güncelle
+      setEvents(events.filter(event => event.id !== eventId))
+      alert('Etkinlikten başarıyla ayrıldınız')
     } catch (error) {
       console.error('Etkinlikten ayrılma hatası:', error)
-      alert('Etkinlikten ayrılırken bir hata oluştu')
+      alert(error.message || 'Etkinlikten ayrılırken bir hata oluştu')
     }
   }
 

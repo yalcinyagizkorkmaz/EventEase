@@ -111,11 +111,11 @@ def add_test_attendance_data():
     mock_events = [
         {
             "id": "test-event-1",
-            "title": "Test Etkinlik 1",
-            "description": "Bu bir test etkinliğidir",
+            "title": "Yazılım Geliştirme Meetup",
+            "description": "Modern web teknolojileri hakkında konuşacağız. React, Next.js ve backend teknolojileri tartışılacak.",
             "date": datetime.now() + timedelta(days=7),
-            "location": "Test Lokasyonu",
-            "max_attendees": 10,
+            "location": "İstanbul Teknoloji Merkezi",
+            "max_attendees": 50,
             "is_public": True,
             "creator_id": "2",
             "created_at": datetime.now(),
@@ -123,32 +123,33 @@ def add_test_attendance_data():
         },
         {
             "id": "test-event-2", 
-            "title": "Test Etkinlik 2",
-            "description": "Bu da bir test etkinliğidir",
+            "title": "Startup Networking Etkinliği",
+            "description": "Girişimciler ve yatırımcılar bir araya geliyor. Networking fırsatları ve mentorluk.",
             "date": datetime.now() + timedelta(days=14),
-            "location": "Test Lokasyonu 2",
-            "max_attendees": 5,
+            "location": "Ankara İnovasyon Merkezi",
+            "max_attendees": 100,
             "is_public": True,
             "creator_id": "3",
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        },
+        {
+            "id": "test-event-3",
+            "title": "Müzik Festivali",
+            "description": "Yerel sanatçıların performansları ve canlı müzik. Açık hava etkinliği.",
+            "date": datetime.now() + timedelta(days=21),
+            "location": "İzmir Kültür Parkı",
+            "max_attendees": 200,
+            "is_public": True,
+            "creator_id": "4",
             "created_at": datetime.now(),
             "updated_at": datetime.now()
         }
     ]
     
-    # Test kullanıcısı "1" için attendance kayıtları
-    mock_attendances = [
-        {
-            "user_id": "1",
-            "event_id": "test-event-1",
-            "joined_at": datetime.now()
-        },
-        {
-            "user_id": "1", 
-            "event_id": "test-event-2",
-            "joined_at": datetime.now()
-        }
-    ]
-    print(f"Mock data eklendi: {len(mock_events)} etkinlik, {len(mock_attendances)} attendance kaydı")
+    # Test kullanıcısı için attendance kayıtları (kullanıcı ID'si dinamik olacak)
+    mock_attendances = []
+    print(f"Mock data eklendi: {len(mock_events)} etkinlik hazır")
 
 # Test data'yı ekle
 add_test_attendance_data()
@@ -531,6 +532,8 @@ async def join_event(event_id: str, current_user: dict = Depends(get_current_use
             "event_id": event_id,
             "joined_at": datetime.now()
         })
+        print(f"Kullanıcı {current_user['id']} etkinlik {event_id}'ye katıldı")
+        print(f"Toplam attendance kaydı: {len(mock_attendances)}")
     
     return {"message": "Etkinliğe başarıyla katıldınız"}
 
