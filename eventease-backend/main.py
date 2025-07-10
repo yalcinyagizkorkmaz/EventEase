@@ -27,9 +27,15 @@ app = FastAPI(
 )
 
 # CORS ayarları
+origins = [
+    "http://localhost:3000",  # Local development
+    "https://event-ease.vercel.app",
+    "https://event-ease-c7aiv0cux-yalcin-yagiz-korkmazs-projects.vercel.app"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js frontend
+    allow_origins=origins,  # 👈 hangi domainlerden gelen istekleri kabul edeceksin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

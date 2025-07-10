@@ -1,6 +1,10 @@
 // API Base URL - Environment variable'dan al, yoksa localhost kullan
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+// Debug için API URL'yi logla
+console.log('API Base URL:', API_BASE_URL)
+console.log('Environment:', process.env.NODE_ENV)
+
 // API'nin mevcut olup olmadığını kontrol et
 const isApiAvailable = () => true;
 
