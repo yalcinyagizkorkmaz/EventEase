@@ -14,7 +14,7 @@ EventEase, etkinlik planlama süreçlerini kolaylaştırmak amacıyla geliştiri
 ## 🛠️ Teknolojiler
 
 - **Frontend**: Next.js, Tailwind CSS
-- **Backend**: Node.js, Express
+- **Backend**: Python,FastAPI
 - **Veritabanı**: MongoDB
 - **Kimlik Doğrulama**: JWT, Google OAuth
 - **Deployment**: Vercel (Frontend), Railway/Render (Backend)
